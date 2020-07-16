@@ -1,2 +1,2 @@
 # KnowledgeBase
-General Knowledge Baase for Homelabbing and related topics
+General Knowledge Base for Homelabbing and related topics
