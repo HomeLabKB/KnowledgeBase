@@ -1,0 +1,112 @@
+########################
+# Database Preparation #
+########################
+
+# Create a Postgres Role and Database for this. 
+
+#########################
+# Install Prerequisites #
+#########################
+
+sudo yum install java-11-openjdk-headless
+
+################
+# Service User #
+################
+
+# Create Service Account
+useradd -r -m -U -d /opt/sonarqube -s /bin/bash sonarqube
+
+# Login as Account
+su - sonarqube
+
+################
+# Installation #
+################
+
+wget https://binaries.sonarsource.com/Distribution/sonarqube/sonarqube-8.2.0.32929.zip
+unzip sonarqube-8.2.0.32929.zip
+rm sonarqube-8.2.0.32929.zip
+cd sonarqube-8.2.0.32929
+mv * ../
+cd ..
+rmdir sonarqube-8.2.0.32929
+
+#################
+# Configuration #
+#################
+
+# Set Database Stuff
+nano /opt/sonarqube/config/sonar.properties
+
+# Exit SonarQube User
+exit
+
+#####################
+# Configure SystemD #
+#####################
+
+# Create Unit File
+nano /etc/systemd/system/sonarqube.service
+
+# Reload Daemons
+systemctl daemon-reload
+
+# Map fix for Elasticsearch
+echo "vm.max_map_count=262144" >> /etc/sysctl.conf
+sudo sysctl 
+
+# Start Service
+systemctl start sonarqube
+
+# Check Status
+systemctl status sonarqube
+
+# Make unit run automatically
+systemctl enable sonarqube
+
+#################
+# Install Nginx #
+#################
+
+# Install
+sudo yum install nginx
+
+# Firewall Config
+sudo firewall-cmd --permanent --zone=public --add-service=http 
+sudo firewall-cmd --permanent --zone=public --add-service=https
+sudo firewall-cmd --reload
+
+# Start and enable
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+# Go To NGINX Configuration
+cd /etc/nginx
+
+# Add proxy_params (Was missing on Centos)
+sudo nano proxy_params
+
+# Add Directories
+mkdir sites-available
+mkdir sites-enabled
+
+# Add Sites Enabled to Config
+sudo nano nginx.conf
+
+# Add and Link site
+cd sites-available
+sudo nano sonarqube.example.com
+ln -s /etc/nginx/sites-available/sonarqube.example.com /etc/nginx/sites-enabled
+
+# Test Configuration
+sudo nginx -t
+
+# Reload Nginx Config
+sudo systemctl reload nginx
+
+# Update SELinux so it wont cause a Gateway Error
+setsebool -P httpd_can_network_connect true
+
+
+

@@ -1,0 +1,54 @@
+################
+# Install Java #
+################
+
+sudo yum install java-1.8.0-openjdk-headless
+
+#################
+# Install Maven #
+#################
+
+# sudo yum install maven
+
+#################
+# Install Nginx #
+#################
+
+# Install
+sudo yum install nginx
+
+# Firewall Config
+sudo firewall-cmd --permanent --zone=public --add-service=http 
+sudo firewall-cmd --permanent --zone=public --add-service=https
+sudo firewall-cmd --reload
+
+# Start and enable
+sudo systemctl start nginx
+sudo systemctl enable nginx
+
+# Go To NGINX Configuration
+cd /etc/nginx
+
+# Add proxy_params (Was missing on Centos)
+sudo nano proxy_params
+
+# Add Directories
+mkdir sites-available
+mkdir sites-enabled
+
+# Add Sites Enabled to Config
+sudo nano nginx.conf
+
+# Add and Link site
+cd sites-available
+sudo nano nexus.example.com
+ln -s /etc/nginx/sites-available/nexus.example.com /etc/nexus/sites-enabled
+
+# Test Configuration
+sudo nginx -t
+
+# Reload Nginx Config
+sudo systemctl reload nginx
+
+# Update SELinux so it wont cause a Gateway Error
+setsebool -P httpd_can_network_connect true
