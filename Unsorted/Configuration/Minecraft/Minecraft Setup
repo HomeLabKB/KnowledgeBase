@@ -1,0 +1,117 @@
+######################
+# Install Requisites #
+######################
+
+# For Tools
+yum install git
+yum group install "Development Tools"
+
+# For Server
+yum install java-1.8.0-openjdk-headless
+
+#########################
+# Create System Account #
+#########################
+
+useradd -r -m -U -d /opt/minecraft -s /bin/bash minecraft
+
+######################
+# Create Directories #
+######################
+
+su - minecraft
+mkdir backups
+mkdir tools
+mkdir server
+
+################
+# Build mcrcon #
+################
+
+cd tools 
+
+# Get copy of mcron
+git clone https://github.com/Tiiffi/mcrcon.git
+
+cd mcrcon
+
+# Builds mcrcon
+gcc -std=gnu11 -pedantic -Wall -Wextra -O2 -s -o mcrcon mcrcon.c
+
+#####################
+# Install Minecraft #
+#####################
+
+# Copy Server Jar (Check for updated Link)
+wget https://launcher.mojang.com/v1/objects/bb2b6b1aefcd70dfd1892149ac3a215f6c636b07/server.jar
+
+# Perform initial boot.
+java -Xmx1024M -Xms1024M -jar server.jar nogui
+
+# Edit EULA Text and set eula to true 
+nano eula.txt
+
+# Edit server properties
+# rcon.port=25575
+# rcon.password=test
+# enable-rcon=true
+nano server.properties
+
+#####################
+# Configure SystemD #
+#####################
+
+# Leave Minecraft User
+exit
+
+# Create Unit File
+nano /etc/systemd/system/minecraft.service
+
+# Reload Daemons
+systemctl daemon-reload
+
+# Start Service
+systemctl start minecraft
+
+# Check Status
+systemctl status minecraft
+
+# Make unit run automatically
+systemctl enable minecraft
+
+######################
+# Configure Firewall #
+######################
+
+# Open Ports for Minecraft
+sudo firewall-cmd --permanent --zone=public --add-port=25565/tcp
+sudo firewall-cmd --reload
+
+###############################
+# Configure Automatic Backups #
+###############################
+
+# Get back inside system account
+su - minecraft
+
+# Jump into the tools directory
+cd tools
+
+# Create backup script
+nano backup.sh
+
+# Make script executable
+chmod +x /opt/minecraft/tools/backup.sh
+
+# Create a Cron Job
+crontab -e
+
+0 3 * * * /opt/minecraft/tools/backup.sh
+
+#################
+# Misc Commands #
+#################
+
+# Accessing Minecraft Console (Should you ever need to)
+/opt/minecraft/tools/mcrcon/mcrcon -H 127.0.0.1 -P 25575 -p strong-password -t
+

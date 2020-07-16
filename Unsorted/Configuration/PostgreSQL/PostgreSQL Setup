@@ -1,0 +1,45 @@
+
+####################
+# PostgreSQL Setup #
+####################
+
+# Install client programs
+sudo yum install postgresql
+
+# Install server
+sudo yum install postgresql-server
+
+# Install extension modules
+sudo yum install postgresql-contrib
+
+# Create the postgres database cluster
+sudo postgresql-setup initdb
+
+# Edit Postgresql to allow external access
+sudo vim /var/lib/pgsql/data/postgresql.conf
+# Set listen_addresses = '*'
+
+# Edit Host Based Authentication File
+sudo vim /var/lib/pgsql/data/pg_hba.conf
+#   host    all all     0.0.0.0/0   scram-sha-256
+#   host    all all     ::0/0       scram-sha-256
+
+# Start and Enable postgresql
+sudo systemctl enable --now postgresql
+
+#Log into postgres user
+sudo -i -u postgres
+
+# Create User
+createuser --interactive
+
+# Create Database
+createdb [username from createuser]
+
+##########################
+# FIREWALL CONFIGURATION #
+##########################
+
+sudo firewall-cmd --add-service=postgresql --permanent
+sudo firewall-cmd --reload
+
