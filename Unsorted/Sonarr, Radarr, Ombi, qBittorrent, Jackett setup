@@ -1,0 +1,180 @@
+Setting up Sonarr, Radarr, Ombi, qBittorrent, and Jackett on Ubuntu 20.04
+
+These steps can be done in whatever order you want, so the steps I set these services up in are out of order I set them up on.
+
+Also what I have detailed out here is probably not best practices but it is running on my LAN and isn't being exposed to the internet so I am not really fussed about it.
+
+Firstly I would recommend downloading/ upgrading mono, I have chosen just to download mono-complete because it will cover everything I need and the extra stuff doesn't bother me.
+(https://linuxize.com/post/how-to-install-mono-on-ubuntu-20-04/)
+sudo apt update
+sudo apt install dirmngr gnupg apt-transport-https ca-certificates software-properties-common
+sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF
+sudo apt-add-repository 'deb https://download.mono-project.com/repo/ubuntu stable-bionic main'
+sudo apt install mono-complete
+And one the install is done you can do mono --version in order to check the version
+
+With mono installed we can start installing the other services.
+
+Firstly we will install Sonarr, I myself am running Sonarr V3 which at the time of writing is in beta but v2 will work fine as well.
+
+(https://github.com/Sonarr/Sonarr/wiki/Installation#linux)
+sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 0xA236C58F409091A18ACA53CBEBFF6B99D9B78493
+echo "deb http://apt.sonarr.tv/ master main" | sudo tee /etc/apt/sources.list.d/sonarr.list
+sudo apt update 
+sudo apt install nzbdrone
+mono --debug /opt/NzbDrone/NzbDrone.exe ← this starts Sonarr
+And now you are able to access Sonarr at http://localhost:8989 or http://$your_ipaddress:8989 
+If you want you can check “systemctl status sonarr.service” and see what’s happening, if you want the service to start on bootup/reboot then you can do “sudo systemctl enable sonarr.service” and it will start the next time you reboot.
+
+
+Now we will install Radarr v2
+
+(https://github.com/Radarr/Radarr/wiki/Installation)
+sudo apt update && apt install curl mediainfo
+(if you are following the link scroll down a little bit) curl -L -O $( curl -s https://api.github.com/repos/Radarr/Radarr/releases | grep linux.tar.gz | grep browser_download_url | head -1 | cut -d \" -f 4 )
+tar -xvzf Radarr.develop.*.linux.tar.gz
+mv Radarr /opt
+If you just want to run Radarr without it becoming a service on boot you can “cd” into “/opt/Radarr” and just do “./Radarr” and it should start up and start running but if you want to run as a service (and I’m not sure why you wouldn't) continue on.
+(https://github.com/Radarr/Radarr/wiki/Autostart-on-Linux)
+sudo nano /etc/systemd/system/radarr.service and paste in this block of code into the text file. 
+
+
+[Unit]
+Description=Radarr Daemon
+After=syslog.target network.target
+
+[Service]
+# Change the user and group variables here.
+User=radarr
+Group=radarr
+
+Type=simple
+
+# Change the path to Radarr or mono here if it is in a different location for you.
+ExecStart=/usr/bin/mono --debug /opt/Radarr/Radarr.exe -nobrowser
+TimeoutStopSec=20
+KillMode=process
+Restart=on-failure
+
+# These lines optionally isolate (sandbox) Radarr from the rest of the system.
+# Make sure to add any paths it might use to the list below (space-separated).
+#ReadWritePaths=/opt/Radarr /path/to/movies/folder
+#ProtectSystem=strict
+#PrivateDevices=true
+#ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target
+
+
+Make sure you have a user that Radarr is able to use so, sudo adduser --system --group radarr
+sudo systemctl enable radarr.service
+sudo systemctl start radarr.service
+And then check if the service is running with systemctl status radarr.service, and you will be able to access Radarr on port 7878
+
+With Sonarr and Radarr installed then we move onto Jackett the indexer.
+
+
+(https://awesomeopensource.com/project/Jackett/Jackett)
+Go to this page and select the latest version that is available (in my case it is v0.16.863) and scroll down to the file with “.LinuxAMDx64.tar.gz” and right click the file and select “copy link location”
+Go to your terminal and cd into /opt
+Type “wget” followed by the url you just copied and hit enter. (Example: wget https://github.com/Jackett/Jackett/releases/download/v0.16.863/Jackett.Binaries.LinuxAMDx64.tar.gz)
+Once that is downloaded you can do tar -xzf $the_package_you_just_downloaded
+Once that is unpacked cd into the Jackett folder and run sudo ./install_service_systemd.sh
+Jackett is now installed and running, you can check with systemctl status jackett.service, check to see if its enabled for auto start
+
+Installing Ombi
+(https://github.com/tidusjar/Ombi/wiki/Installation#apt-repo-the-easy-way-only-debian-based-distros)
+This one has 2 different release types but today we are going to install the stable release and not the development release
+echo "deb [arch=amd64,armhf] http://repo.ombi.turd.me/stable/ jessie main" | sudo tee "/etc/apt/sources.list.d/ombi.list"
+wget -qO - https://repo.ombi.turd.me/pubkey.txt | sudo apt-key add -
+sudo apt update && sudo apt install ombi
+Everything is setup for you automatically but again if you want systemctl status ombi.service, and you are able to access Ombi on port 5000
+
+qBittorrent
+(https://www.linuxbabe.com/ubuntu/install-qbittorrent-ubuntu-18-04-desktop-server/amp)
+
+sudo add-apt-repository ppa:qbittorrent-team/qbittorrent-stable
+sudo apt install qbittorrent-nox
+sudo adduser --system --group qbittorrent-nox 
+sudo nano /etc/systemd/system/qbittorrent-nox.service and insert this block
+
+
+[Unit]
+Description=qBittorrent Command Line Client
+After=network.target
+
+[Service]
+#Do not change to "simple"
+Type=forking
+User=qbittorrent-nox
+Group=qbittorrent-nox
+UMask=007
+ExecStart=/usr/bin/qbittorrent-nox -d --webui-port=8080
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+
+
+sudo systemctl enable qbittorrent-nox
+sudo systemctl start qbittorrent-nox
+Access the the web interface on port 8080 and log in with 
+Username: admin
+Password: adminadmin
+Then go to Tools > Options and change your password and if you want you can also change your username if you want but it is not required
+
+Now you can install Plex/Emby/Jellyfin here but I am not going to cover that because there are different install methods for each one and they are easy enough to install.
+
+And that is getting everything installed, again these are probably not best practices but it will at least get you started with what you want to do.
+
+Now for setting everything up to make it all work
+
+This part needs to be followed a little bit more at least in my opinion but that’s up to you
+
+
+
+Connecting your torrent client to Sonarr and Radarr
+
+Access Sonarr/Radarr and go to “Download clients” click on the plus symbol and in this case go to Torrents > qBittorrent, Enter a name, the IP address of the computer you are using, the port that the torrent client is on and the username and password you setup.
+After that click test and if the test is successful click save and carry on. Repeating the process for the other service
+
+Getting Jackett started
+
+Go to Jackett on port 9117 and click on “add indexer” and add a indexer you want (I am using 1337x for this example) and that is it, you are able to add more indexers later but that is all you need for now
+
+Connecting Jackett to Sonarr/Radarr
+
+Back in Sonarr/Radarr click on Indexers and then click the plus button for Jackett we are going to use Torznab and we are going to click on the “custom” button on the tab
+Give the indexer a name
+Go back to Jacket, and on the indexer you just added (1337x) click on “Copy Torznab Feed”
+Back to Sonarr/Radarr and paste in the URL bar
+Back over to Jackett again and grab your API key in the very top right
+Back to Sonarr/Radarr and paste the API key in the API box
+Click test and when it’s ok click save
+Repeat for the other service
+Once done, I find Radarr a bit finicky so give the computer a reboot and the errors in the general tab should be gone
+
+Adding directory paths to Sonarr/Radarr
+
+Before we go over to Ombi we need to make 2 new paths for for Sonarr and Radarr, I just tossed them in the /home/user directory names sonarr and radarr
+I then went to Sonarr/Radarr and added a movie/TV show and in the “path” field you click add a different path click the open folder and in my case I went to home/$my_username/sonarr and home/$my_username/radarr depending on which service I am adding the directory to
+
+
+
+
+
+
+Hooking everything up to Ombi
+
+Log into Ombi and head over to settings
+Click on TV > Sonarr
+When there fill out the respective settings with the API key being found under Settings > General in Sonarr
+On the side click load “Load Qualities”, “Load Folders” and “Load Languages” then click on the drop down menus and select the profiles you want
+You can enable season folders if you want, click Test connection and then click submit
+For Radarr go under movies > Radarr
+The steps are the same as they were for Sonarr but you will be missing the “Load Language” setting 
+Test connectivity and click save
+
+You are now able to to connect Plex/Emby/Jellyfin to Ombi, at the time of writing Jellyfin seems to be up in the air if it will work or not but you can give it a try
+
